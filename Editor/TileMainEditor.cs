@@ -19,7 +19,7 @@ public class TileMainEditor : Editor
     private Vector3 tilepos;
     //bool to check if tile selection grid is hidden or not
     public bool isTilesetDone = false;
-    // Scrolebar position
+    // Scrollbar position
     private Vector2 scrolepos = Vector2.zero;
     // String for button
     string tilebutton = "Show Tiles";
@@ -46,7 +46,7 @@ public class TileMainEditor : Editor
         //Debug.Log(tilemain.Tiles[0].textureRect.height / tilemain.Tiles[0].bounds.size.y);
     }
 
-    //All the work happinning in Scene view
+    //All the work happening in Scene view
     void OnSceneGUI()
     {
         if (tilemain.isdrawmode)
@@ -249,46 +249,29 @@ public class TileMainEditor : Editor
     // Drawing function
     private void Draw()
     {
-        RaycastHit2D rayHit = Physics2D.Raycast(mouseHitPos, Vector2.zero);
-
-        //Makes sure the place is empty, or if it is not, that the object there is not a tile
-        if (!rayHit.collider || !rayHit.transform.name.Contains("Tile_"))
+        RaycastHit2D[] rayHit = Physics2D.RaycastAll(mouseHitPos, Vector2.zero);
+        bool check = false;
+        //Makes sure the place is empty, or if it is not, that the object there is not a tiles
+        if (rayHit.Length == 0)
+            CreateNewTiles();
+        if (rayHit.Length > 0)
         {
-            //lets you undo editor changes
-            Undo.IncrementCurrentGroup();
-            // Instantiate a gameobject with the selected sprite and selected grid location and as a children of main layer 
-            GameObject tile = new GameObject("tile");
-            SpriteRenderer renderer = tile.AddComponent<SpriteRenderer>();
-            renderer.sprite = tilemain.Tiles[tilemain.tileGridId];
-            renderer.sortingLayerName = sortingLayers[tilemain.chosenSortingLayer]; //Set sorting layer of tile to selected one
-            tile.transform.position = tilemain.MarkerPosition;
-
-            //Add collider if wanted
-            if (tilemain.addcollider)
+            for (int i = 0; i < rayHit.Length; i++)
             {
-                tile.AddComponent(tilemain.collidertype[tilemain.coltyp]);
+                //If a tile is already located on this location, just change the sprite of that tile
+                if (rayHit[i].transform.name.Contains("Tile_") && (rayHit[i].transform.position.z == -tilemain.Level))
+                {
+                    Undo.RecordObject(rayHit[i].transform.GetComponent<SpriteRenderer>().sprite, "Change Sprite");
+                    rayHit[i].transform.GetComponent<SpriteRenderer>().sprite = tilemain.Tiles[tilemain.tileGridId];
+                    check = true;
+                }
+                if (!(rayHit[i].transform.position.z == -tilemain.Level) && check == false)
+                {
+                    CreateNewTiles();
+                    break;
+                }
+                    
             }
-            else
-            {
-                tile.AddComponent(tilemain.collidertype[0]);    //Add a boxCollider2D for raycasting (will be removed on play)
-                tilemain.noColliderTiles.Add(tile.transform);   //Add the transform of the tile to this list
-                EditorUtility.SetDirty(tilemain);   //To make changes remain
-            }
-
-            //Add material if wanted and if the material is not null
-            if (tilemain.addMaterial && tilemain.tileMaterial)
-                renderer.material = tilemain.tileMaterial;
-
-            tile.name = string.Format("Tile_{0}_{1}_{2}", tilepos.x, tilepos.y, tilepos.z);
-            tile.transform.parent = tilemain.transform;
-            Undo.RegisterCreatedObjectUndo(tile, "Create Tile");
-        }
-
-        //If a tile is already located on this location, just change the sprite of that tile
-        else if (rayHit.transform.name.Contains("Tile_"))
-        {
-            Undo.RecordObject(rayHit.transform.GetComponent<SpriteRenderer>().sprite, "Change Sprite");
-            rayHit.transform.GetComponent<SpriteRenderer>().sprite = tilemain.Tiles[tilemain.tileGridId];
         }
     }
 
@@ -303,8 +286,8 @@ public class TileMainEditor : Editor
             //Find which one of the collider (assuming there might be more than one) is the tile
             for (int i = 0; i < rayHit.Length; i++)
             {
-                //If this collider is the our tile
-                if (rayHit[i].transform.name.Contains("Tile_"))
+                //If this collider is the our level
+                if (rayHit[i].transform.name.Contains("Tile_") && (rayHit[i].transform.position.z == -tilemain.Level))
                 {
                     tilemain.noColliderTiles.Remove(rayHit[i].transform);   //Remove from list
                     Undo.IncrementCurrentGroup();
@@ -388,5 +371,37 @@ public class TileMainEditor : Editor
         Type internalEditorUtilityType = typeof(InternalEditorUtility);
         PropertyInfo sortingLayersProperty = internalEditorUtilityType.GetProperty("sortingLayerNames", BindingFlags.Static | BindingFlags.NonPublic);
         return (string[])sortingLayersProperty.GetValue(null, new object[0]);
+    }
+
+    //create new tiles
+    public void CreateNewTiles(){
+            //lets you undo editor changes
+            Undo.IncrementCurrentGroup();
+            // Instantiate a gameobject with the selected sprite and selected grid location and as a children of main layer 
+            GameObject tile = new GameObject("tile");
+            SpriteRenderer renderer = tile.AddComponent<SpriteRenderer>();
+            renderer.sprite = tilemain.Tiles[tilemain.tileGridId];
+            renderer.sortingLayerName = sortingLayers[tilemain.chosenSortingLayer]; //Set sorting layer of tile to selected one
+            tile.transform.position = tilemain.MarkerPosition;
+
+            //Add collider if wanted
+            if (tilemain.addcollider)
+            {
+                tile.AddComponent(tilemain.collidertype[tilemain.coltyp]);
+            }
+            else
+            {
+                tile.AddComponent(tilemain.collidertype[0]);    //Add a boxCollider2D for raycasting (will be removed on play)
+                tilemain.noColliderTiles.Add(tile.transform);   //Add the transform of the tile to this list
+                EditorUtility.SetDirty(tilemain);   //To make changes remain
+            }
+
+            //Add material if wanted and if the material is not null
+            if (tilemain.addMaterial && tilemain.tileMaterial)
+                renderer.material = tilemain.tileMaterial;
+
+            tile.name = string.Format("Tile_{0}_{1}_{2}", tilepos.x, tilepos.y, tilepos.z);
+            tile.transform.parent = tilemain.transform;
+            Undo.RegisterCreatedObjectUndo(tile, "Create Tile");
     }
 }
